@@ -197,22 +197,7 @@ aws apigatewayv2 create-stage --api-id <API_ID> --stage-name prod --auto-deploy
 
 ---
 
-## 6. Checklist de entrega
-
-- [x] API CRUD cobre 4 operações essenciais (GET, POST, PUT, DELETE)
-- [x] Banco RDS MySQL criado e conectado ao backend
-- [x] Imagem Docker com tag correspondente ao commit apresentado
-- [x] API Gateway roteando `/items*` → ECS e `/report` → Lambda
-- [x] Função Lambda consome a API (`/items`) via HTTP, gera JSON de relatório. **Não** toca no RDS
-- [x] Frontend hospedado no S3 com URL pública
-- [x] README completo com diagrama de arquitetura
-- [ ] PDF (≤ 12 pág.) com capturas de tela e descrição de funções dos integrantes
-- [ ] Vídeo (≤ 5 min) demonstrando CRUD, chamada `/report`
-- [ ] ZIP final contém `README.md`, código-fonte, PDF e link do vídeo
-
----
-
-## 7. Estrutura do repositório
+## 6. Estrutura do repositório
 
 ```
 catalogo-filmes/
@@ -240,7 +225,7 @@ catalogo-filmes/
 
 ---
 
-## 8. Observações sobre o ambiente de laboratório
+## 7. Observações sobre o ambiente de laboratório
 
 O projeto foi desenvolvido no AWS Academy Learner Lab, que possui algumas restrições de permissões. Por isso:
 
