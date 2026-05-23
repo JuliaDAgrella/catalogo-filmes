@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Catálogo de Filmes</title>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #8b949e;
+      --accent:  #f78166;
+      --accent2: #58a6ff;
+      --danger:  #da3633;
+      --success: #238636;
+      --radius:  8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 0 0 60px;
+    }
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 16px 24px; display: flex; align-items: center; gap: 16px;
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header span { font-size: 22px; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+    .tab {
+      padding: 8px 16px; border-radius: var(--radius); cursor: pointer;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-size: 14px; transition: all .2s;
+    }
+    .tab.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
+    /* Cards de filmes */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .card-titulo { font-size: 16px; font-weight: 600; }
+    .card-info { font-size: 13px; color: var(--muted); }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 20px;
+      font-size: 12px; background: rgba(88,166,255,.15); color: var(--accent2);
+    }
+    .nota { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .card-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .btn {
+      padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--border);
+      cursor: pointer; font-size: 13px; transition: all .15s; background: transparent; color: var(--text);
+    }
+    .btn:hover { background: var(--border); }
+    .btn.danger { border-color: var(--danger); color: var(--danger); }
+    .btn.danger:hover { background: rgba(218,54,51,.1); }
+    .btn.primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+    .btn.primary:hover { opacity: .85; }
+
+    /* Formulário */
+    form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 13px; color: var(--muted); }
+    input, select, textarea {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 8px 12px; font-size: 14px; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent2); }
+    textarea { resize: vertical; min-height: 80px; }
+    .form-actions { margin-top: 20px; display: flex; gap: 12px; }
+    .msg { padding: 12px 16px; border-radius: var(--radius); font-size: 14px; margin-bottom: 16px; }
+    .msg.ok  { background: rgba(35,134,54,.15); border: 1px solid var(--success); color: #3fb950; }
+    .msg.err { background: rgba(218,54,51,.15);  border: 1px solid var(--danger);  color: #f85149; }
+
+    /* Relatório */
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; text-align: center;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .stat-val   { font-size: 28px; font-weight: 700; color: var(--accent2); }
+
+    /* Loading */
+    .loading { text-align: center; padding: 40px; color: var(--muted); }
+    .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 15px; }
+  </style>
+</head>
+<body>
+<header>
+  <span>🎬</span>
+  <h1>Catálogo de Filmes</h1>
+</header>
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('lista')">Filmes</button>
+    <button class="tab" onclick="showTab('form')">Adicionar</button>
+    <button class="tab" onclick="showTab('report')">Relatório</button>
+  </div>
+
+  <!-- MENSAGEM DE FEEDBACK -->
+  <div id="msg" style="display:none" class="msg"></div>
+
+  <!-- ABA: LISTA -->
+  <div id="tab-lista">
+    <div id="lista-loading" class="loading">Carregando filmes...</div>
+    <div id="lista-empty" class="empty" style="display:none">Nenhum filme cadastrado ainda.</div>
+    <div id="grid" class="grid"></div>
+  </div>
+
+  <!-- ABA: FORMULÁRIO -->
+  <div id="tab-form" style="display:none">
+    <form id="filmeForm">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Título *</label>
+          <input type="text" id="titulo" required/>
+        </div>
+        <div class="form-group">
+          <label>Diretor *</label>
+          <input type="text" id="diretor" required/>
+        </div>
+        <div class="form-group">
+          <label>Ano *</label>
+          <input type="number" id="ano" min="1888" max="2025" required/>
+        </div>
+        <div class="form-group">
+          <label>Gênero *</label>
+          <select id="genero">
+            <option value="">Selecione...</option>
+            <option>Ação</option><option>Aventura</option><option>Animação</option>
+            <option>Comédia</option><option>Crime/Drama</option><option>Drama</option>
+            <option>Fantasia</option><option>Ficção Científica</option><option>Terror</option>
+            <option>Thriller</option><option>Romance</option><option>Outro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nota (0–10)</label>
+          <input type="number" id="nota" min="0" max="10" step="0.1"/>
+        </div>
+        <div class="form-group full">
+          <label>Sinopse</label>
+          <textarea id="sinopse"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn primary">Salvar Filme</button>
+        <button type="button" class="btn" onclick="resetForm()">Limpar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ABA: RELATÓRIO -->
+  <div id="tab-report" style="display:none">
+    <div id="report-loading" class="loading">Gerando relatório...</div>
+    <div id="report-content" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+  
+  const API = 'https://dyt0vjwv91.execute-api.us-east-1.amazonaws.com/prod';
+
+  let editingId = null;
+
+  // ── Tabs ────────────────────────────────────────────────
+  function showTab(name) {
+    ['lista','form','report'].forEach(t => {
+      document.getElementById('tab-'+t).style.display = t === name ? '' : 'none';
+    });
+    document.querySelectorAll('.tab').forEach((b, i) => {
+      b.classList.toggle('active', ['lista','form','report'][i] === name);
+    });
+    if (name === 'lista')  loadFilmes();
+    if (name === 'report') loadReport();
+    if (name === 'form')   { editingId = null; resetForm(); }
+  }
+
+  // ── Mensagem ────────────────────────────────────────────
+  function showMsg(text, ok = true) {
+    const el = document.getElementById('msg');
+    el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err');
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3500);
+  }
+
+  // ── GET /items ──────────────────────────────────────────
+  async function loadFilmes() {
+    document.getElementById('lista-loading').style.display = 'block';
+    document.getElementById('grid').innerHTML = '';
+    document.getElementById('lista-empty').style.display = 'none';
+    try {
+      const res  = await fetch(`${API}/items`);
+      const data = await res.json();
+      const list = data.filmes || [];
+      document.getElementById('lista-loading').style.display = 'none';
+      if (!list.length) { document.getElementById('lista-empty').style.display = 'block'; return; }
+      document.getElementById('grid').innerHTML = list.map(renderCard).join('');
+    } catch {
+      document.getElementById('lista-loading').textContent = 'Erro ao carregar filmes.';
+    }
+  }
+
+  function renderCard(f) {
+    return `
+    <div class="card">
+      <div class="card-titulo">${esc(f.titulo)}</div>
+      <div><span class="badge">${esc(f.genero)}</span></div>
+      <div class="card-info">🎬 ${esc(f.diretor)} · ${f.ano}</div>
+      ${f.nota ? `<div class="nota">⭐ ${f.nota}</div>` : ''}
+      ${f.sinopse ? `<div class="card-info">${esc(f.sinopse.substring(0,100))}${f.sinopse.length>100?'…':''}</div>` : ''}
+      <div class="card-actions">
+        <button class="btn" onclick='editFilme(${JSON.stringify(f)})'>Editar</button>
+        <button class="btn danger" onclick="deleteFilme(${f.id},'${esc(f.titulo)}')">Excluir</button>
+      </div>
+    </div>`;
+  }
+
+  // ── POST / PUT ──────────────────────────────────────────
+  document.getElementById('filmeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {
+      titulo:  document.getElementById('titulo').value.trim(),
+      diretor: document.getElementById('diretor').value.trim(),
+      ano:     parseInt(document.getElementById('ano').value),
+      genero:  document.getElementById('genero').value,
+      sinopse: document.getElementById('sinopse').value.trim(),
+      nota:    parseFloat(document.getElementById('nota').value) || null,
+    };
+    const method = editingId ? 'PUT' : 'POST';
+    const url    = editingId ? `${API}/items/${editingId}` : `${API}/items`;
+    try {
+      const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro');
+      showMsg(editingId ? 'Filme atualizado!' : 'Filme criado!');
+      resetForm(); showTab('lista');
+    } catch (err) { showMsg(err.message, false); }
+  });
+
+function editFilme(f) {
+    editingId = f.id;
+    document.getElementById('titulo').value  = f.titulo;
+    document.getElementById('diretor').value = f.diretor;
+    document.getElementById('ano').value     = f.ano;
+    document.getElementById('genero').value  = f.genero;
+    document.getElementById('sinopse').value = f.sinopse || '';
+    document.getElementById('nota').value    = f.nota || '';
+    // Mostra a aba sem resetar o editingId
+    ['lista','form','report'].forEach(t => {
+      document.getElementById('tab-'+t).style.display = t === 'form' ? '' : 'none';
+    });
+    document.querySelectorAll('.tab').forEach((b, i) => {
+      b.classList.toggle('active', ['lista','form','report'][i] === 'form');
+    });
+  }
+
+  function resetForm() {
+    editingId = null;
+    document.getElementById('filmeForm').reset();
+  }
+
+  // ── DELETE ──────────────────────────────────────────────
+  async function deleteFilme(id, titulo) {
+    if (!confirm(`Excluir "${titulo}"?`)) return;
+    try {
+      const res = await fetch(`${API}/items/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Erro ao excluir');
+      showMsg('Filme excluído!');
+      loadFilmes();
+    } catch (err) { showMsg(err.message, false); }
+  }
+
+  // ── GET /report (via Lambda) ─────────────────────────────
+  async function loadReport() {
+    document.getElementById('report-loading').style.display = 'block';
+    document.getElementById('report-content').style.display = 'none';
+    try {
+      const res  = await fetch(`${API}/report`);
+      const data = await res.json();
+      const s    = data.stats;
+      document.getElementById('report-loading').style.display = 'none';
+      document.getElementById('report-content').innerHTML = `
+        <div class="report-grid">
+          <div class="stat-card"><div class="stat-label">Total de Filmes</div><div class="stat-val">${s.total_filmes}</div></div>
+          <div class="stat-card"><div class="stat-label">Nota Média</div><div class="stat-val">${s.nota_media ?? '-'}</div></div>
+          <div class="stat-card"><div class="stat-label">Nota Máxima</div><div class="stat-val">${s.nota_maxima ?? '-'}</div></div>
+          <div class="stat-card"><div class="stat-label">Nota Mínima</div><div class="stat-val">${s.nota_minima ?? '-'}</div></div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
+          <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Melhor filme</p>
+          <p style="font-weight:600">${s.melhor_filme?.titulo ?? '-'} <span style="color:var(--accent)">⭐ ${s.melhor_filme?.nota ?? ''}</span></p>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px">
+            <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Por gênero</p>
+            ${Object.entries(s.por_genero||{}).map(([g,n])=>`<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0"><span>${g}</span><span style="color:var(--accent2)">${n}</span></div>`).join('')}
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px">
+            <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Por década</p>
+            ${Object.entries(s.por_decada||{}).map(([d,n])=>`<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0"><span>${d}</span><span style="color:var(--accent2)">${n}</span></div>`).join('')}
+          </div>
+        </div>
+        <p style="color:var(--muted);font-size:12px;margin-top:12px">Gerado em: ${data.gerado_em}</p>`;
+      document.getElementById('report-content').style.display = 'block';
+    } catch {
+      document.getElementById('report-loading').textContent = 'Erro ao gerar relatório.';
+    }
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init ─────────────────────────────────────────────────
+  loadFilmes();
+</script>
+</body>
+</html>

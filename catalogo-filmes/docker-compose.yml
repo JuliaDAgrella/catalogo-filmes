@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  # ── Banco de dados local (MySQL) ──────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: filmes-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: catalogo_filmes
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: SuaSenhaForte123!
+    ports:
+      - "3306:3306"            # exposto APENAS localmente
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./backend/src/config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "admin", "-pSuaSenhaForte123!"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Back-end API ──────────────────────────────────────────
+  backend:
+    build: ./backend
+    container_name: filmes-backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: admin
+      DB_PASSWORD: SuaSenhaForte123!
+      DB_NAME: catalogo_filmes
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Front-end ─────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: filmes-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
