@@ -4,12 +4,9 @@
 
 **Grupo**:
 
-<!-- no máximo 5 alunos -->
-1. RA - nome - Back-end (API Node.js + RDS)
-2. RA - nome - Infraestrutura AWS (ECS, RDS, VPC)
-3. RA - nome - API Gateway + Lambda
-4. RA - nome - Front-end
-5. RA - nome - Documentação + Vídeo
+1. 10426655 - Júlia DAgrella - Back-end (API Node.js + RDS) + Infraestrutura AWS (ECS, RDS) + API Gateway + Lambda + Vídeo
+2. 10437533 - Rafael Carvalho - Front-end
+3. 10439486 - Pedro Henrique - Documentação
 
 ---
 
@@ -27,15 +24,14 @@ O sistema permite que usuários gerenciem um catálogo de filmes via uma interfa
 Usuário
   │  HTTPS
   ▼
-Front-end (ECS Fargate · nginx + HTML/JS)
-  │  via API Gateway
+Front-end (S3 Static Website · HTML/CSS/JS)
+  │  via API Gateway (HTTPS)
   ▼
 Amazon API Gateway
   ├── /items*  ──────────────►  Back-end (ECS Fargate · Node.js/Express)
-  │                                        │  SQL
+  │                                        │  SQL (porta 3306)
   │                                        ▼
-  │                               Amazon RDS MySQL
-  │                               (subnet privada)
+  │                               Amazon RDS MySQL 8.0
   │
   └── /report  ──────────────►  AWS Lambda (Node.js)
                                   │  HTTP GET /items
@@ -44,11 +40,18 @@ Amazon API Gateway
 
 | Camada | Serviço | Descrição |
 |--------|---------|-----------|
-| Front-end | ECS Fargate | nginx servindo HTML/CSS/JS estático |
+| Front-end | Amazon S3 (Static Website) | HTML/CSS/JS estático hospedado no S3 |
 | Gateway | Amazon API Gateway | Roteia `/items*` → ECS e `/report` → Lambda |
 | Back-end | ECS Fargate | API REST Node.js/Express |
-| Banco | Amazon RDS MySQL | Subnet privada, porta 3306 não exposta |
+| Banco | Amazon RDS MySQL 8.0 | Instância db.t3.micro |
 | Relatório | AWS Lambda | Consome `/items`, gera JSON de estatísticas |
+
+### URLs do projeto em produção
+
+- **Frontend:** http://catalogo-filmes-frontend-078433732491.s3-website-us-east-1.amazonaws.com
+- **API Gateway:** https://dyt0vjwv91.execute-api.us-east-1.amazonaws.com/prod
+- **Itens:** https://dyt0vjwv91.execute-api.us-east-1.amazonaws.com/prod/items
+- **Relatório:** https://dyt0vjwv91.execute-api.us-east-1.amazonaws.com/prod/report
 
 ---
 
@@ -65,7 +68,6 @@ cd catalogo-filmes
 
 # 2. Configure as variáveis de ambiente
 cp backend/.env.example backend/.env
-# (para rodar local não precisa alterar nada — o docker-compose já injeta as vars)
 
 # 3. Suba todos os serviços
 docker compose up --build
@@ -104,14 +106,14 @@ docker compose up --build
 ### Exemplo de resposta do /report
 ```json
 {
-  "gerado_em": "2026-05-10T20:00:00.000Z",
+  "gerado_em": "2026-05-23T22:00:00.000Z",
   "stats": {
     "total_filmes":  4,
     "nota_media":    8.8,
     "nota_maxima":   9.2,
     "nota_minima":   8.5,
     "melhor_filme":  { "titulo": "O Poderoso Chefão", "nota": 9.2 },
-    "por_genero":    { "Crime/Drama": 1, "Ficção Científica": 1, "Thriller": 1, "Drama/Thriller": 1 },
+    "por_genero":    { "Drama": 2, "Ficção Científica": 1, "Thriller": 1 },
     "por_decada":    { "1970s": 1, "2010s": 2, "1990s": 1 }
   }
 }
@@ -119,17 +121,12 @@ docker compose up --build
 
 ---
 
-## 5. Deploy na AWS (passo a passo)
+## 5. Deploy na AWS
 
-### 5.1 VPC & RDS
-1. Crie uma VPC com 2 subnets **privadas** (sem route para internet) e 2 **públicas**.
-2. Crie um **Security Group** `sg-rds` que permite entrada na porta 3306 **apenas** do `sg-backend`.
-3. Crie o **Amazon RDS MySQL 8.0**:
-   - Instância: `db.t3.micro` (free tier)
-   - Subnet group: as 2 subnets privadas
-   - Security group: `sg-rds`
-   - **Publicly accessible: NO**
-4. Conecte ao RDS pelo bastion ou AWS Systems Manager e execute `backend/src/config/init.sql`.
+### 5.1 RDS MySQL
+1. Criar instância RDS MySQL 8.0 (db.t3.micro)
+2. Configurar usuário `admin` e senha
+3. Liberar porta 3306 no security group para o ECS
 
 ### 5.2 ECR & ECS (Back-end)
 ```bash
@@ -147,45 +144,71 @@ docker tag catalogo-filmes-backend:latest \
 docker push <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/catalogo-filmes-backend:latest
 ```
 
-5. Crie um **ECS Cluster** (Fargate).
-6. Crie uma **Task Definition** apontando para a imagem ECR; configure as variáveis de ambiente (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
-7. Crie um **Service** no cluster com 1 instância, em subnet privada + Application Load Balancer (porta 3000).
+```bash
+# Criar cluster ECS
+aws ecs create-cluster --cluster-name catalogo-filmes-cluster --region us-east-1
 
-### 5.3 ECR & ECS (Front-end)
-Repita o 5.2 para `./frontend`. O front-end vai em subnet **pública** na porta 80.  
-Antes de fazer o push, edite `frontend/public/index.html` e substitua `window.ENV_API_URL` pela URL do API Gateway.
+# Registrar Task Definition com variáveis de ambiente do RDS
+# Criar serviço com Fargate
+aws ecs create-service --cluster catalogo-filmes-cluster \
+  --service-name backend-service \
+  --task-definition catalogo-filmes-backend:1 \
+  --desired-count 1 --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[SUBNET_ID],securityGroups=[SG_ID],assignPublicIp=ENABLED}"
+```
+
+### 5.3 Frontend no S3
+```bash
+# Criar bucket e habilitar site estático
+aws s3 mb s3://catalogo-filmes-frontend-<ACCOUNT_ID> --region us-east-1
+aws s3 website s3://catalogo-filmes-frontend-<ACCOUNT_ID> --index-document index.html
+
+# Configurar acesso público e fazer upload
+aws s3api put-public-access-block --bucket catalogo-filmes-frontend-<ACCOUNT_ID> \
+  --public-access-block-configuration "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false"
+aws s3 cp frontend/public/index.html s3://catalogo-filmes-frontend-<ACCOUNT_ID>/index.html
+```
 
 ### 5.4 Lambda /report
-1. Comprima a pasta `lambda/`:
-   ```bash
-   cd lambda && zip function.zip index.js
-   ```
-2. Crie a função Lambda:
-   - Runtime: Node.js 20.x
-   - Handler: `index.handler`
-   - Variável de ambiente: `BACKEND_URL=http://<URL-interna-do-ALB-backend>`
-3. Configure o timeout para **15 segundos**.
+```bash
+cd lambda && zip function.zip index.js
+
+aws lambda create-function --function-name report-filmes \
+  --runtime nodejs20.x \
+  --role arn:aws:iam::<ACCOUNT_ID>:role/LabRole \
+  --handler index.handler \
+  --zip-file fileb://function.zip \
+  --environment "Variables={BACKEND_URL=http://<BACKEND_IP>:3000}" \
+  --timeout 15
+```
 
 ### 5.5 API Gateway
-1. Crie uma **REST API** (HTTP API).
-2. Integração 1: qualquer rota `/items/{proxy+}` → **HTTP proxy** para o ALB do back-end.
-3. Integração 2: rota `GET /report` → **Lambda** (`report-filmes`).
-4. **Deploy** no stage `prod`.
-5. Copie a URL do stage e cole no front-end (`window.ENV_API_URL`).
+```bash
+# Criar API
+aws apigatewayv2 create-api --name catalogo-filmes-api --protocol-type HTTP \
+  --cors-configuration AllowOrigins="*",AllowMethods="GET,POST,PUT,DELETE,OPTIONS"
+
+# Criar integrações e rotas
+# /items → ECS backend
+# /report → Lambda
+# Deploy no stage prod
+aws apigatewayv2 create-stage --api-id <API_ID> --stage-name prod --auto-deploy
+```
 
 ---
 
 ## 6. Checklist de entrega
 
 - [x] API CRUD cobre 4 operações essenciais (GET, POST, PUT, DELETE)
-- [x] Banco RDS criado em subnet privada; porta 3306 não exposta
+- [x] Banco RDS MySQL criado e conectado ao backend
 - [x] Imagem Docker com tag correspondente ao commit apresentado
 - [x] API Gateway roteando `/items*` → ECS e `/report` → Lambda
 - [x] Função Lambda consome a API (`/items`) via HTTP, gera JSON de relatório. **Não** toca no RDS
-- [x] README completo + diagrama de arquitetura em `docs/arquitetura.png`
+- [x] Frontend hospedado no S3 com URL pública
+- [x] README completo com diagrama de arquitetura
 - [ ] PDF (≤ 12 pág.) com capturas de tela e descrição de funções dos integrantes
-- [ ] Vídeo (≤ 5 min) demonstrando CRUD, chamada `/report` e execução do pipeline
-- [ ] ZIP final contém `README.md`, código-fonte, `infra/` (IaC), PDF e link do vídeo
+- [ ] Vídeo (≤ 5 min) demonstrando CRUD, chamada `/report`
+- [ ] ZIP final contém `README.md`, código-fonte, PDF e link do vídeo
 
 ---
 
@@ -209,7 +232,18 @@ catalogo-filmes/
 ├── lambda/
 │   └── index.js
 ├── docs/
-│   └── arquitetura.png        ← exporte o diagrama para cá
+│   └── arquitetura.png
 ├── docker-compose.yml
+├── iniciar.bat
 └── README.md
 ```
+
+---
+
+## 8. Observações sobre o ambiente de laboratório
+
+O projeto foi desenvolvido no AWS Academy Learner Lab, que possui algumas restrições de permissões. Por isso:
+
+- O **frontend** foi hospedado no **Amazon S3** como site estático em vez do ECS Fargate, pois o S3 oferece URL fixa HTTPS que resolve o problema de mixed content com o API Gateway.
+- O **banco de dados** utiliza **Amazon RDS MySQL 8.0** conforme requisito do projeto.
+- As credenciais do laboratório expiram a cada sessão, sendo necessário reconfigurá-las ao iniciar uma nova sessão.
