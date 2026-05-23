@@ -5,11 +5,12 @@
 **Grupo**:
 
 <!-- no máximo 5 alunos -->
-1. RA - nome - Back-end (API Node.js + RDS)
-2. RA - nome - Infraestrutura AWS (ECS, RDS, VPC)
-3. RA - nome - API Gateway + Lambda
-4. RA - nome - Front-end
-5. RA - nome - Documentação + Vídeo
+1. 10426655 - Júlia DAgrella - Back-end (API Node.js + RDS)
+2. 10426655 - Júlia DAgrella - Infraestrutura AWS (ECS, RDS, VPC)
+3. 10426655 - Júlia DAgrella - API Gateway + Lambda
+4. 10437533 - Rafael Carvalho - Front-end
+5. 10439486 - Pedro Henrique - Documentação
+6. 10426655 - Júlia DAgrella - Vídeo
 
 ---
 
