@@ -176,19 +176,6 @@ Antes de fazer o push, edite `frontend/public/index.html` e substitua `window.EN
 
 ---
 
-## 6. Checklist de entrega
-
-- [x] API CRUD cobre 4 operações essenciais (GET, POST, PUT, DELETE)
-- [x] Banco RDS criado em subnet privada; porta 3306 não exposta
-- [x] Imagem Docker com tag correspondente ao commit apresentado
-- [x] API Gateway roteando `/items*` → ECS e `/report` → Lambda
-- [x] Função Lambda consome a API (`/items`) via HTTP, gera JSON de relatório. **Não** toca no RDS
-- [x] README completo + diagrama de arquitetura em `docs/arquitetura.png`
-- [ ] PDF (≤ 12 pág.) com capturas de tela e descrição de funções dos integrantes
-- [ ] Vídeo (≤ 5 min) demonstrando CRUD, chamada `/report` e execução do pipeline
-- [ ] ZIP final contém `README.md`, código-fonte, `infra/` (IaC), PDF e link do vídeo
-
----
 
 ## 7. Estrutura do repositório
 
