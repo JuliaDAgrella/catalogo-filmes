@@ -38,7 +38,7 @@ echo.
 echo [3/4] Atualizando API Gateway e Lambda com novo IP...
 aws apigatewayv2 update-integration --region us-east-1 --api-id dyt0vjwv91 --integration-id kw607qh --integration-uri http://%BACKEND_IP%:3000/items > nul
 aws apigatewayv2 update-integration --region us-east-1 --api-id dyt0vjwv91 --integration-id jio4ukk --integration-uri http://%BACKEND_IP%:3000/items/{proxy} > nul
-aws lambda update-function-configuration --region us-east-1 --function-name report-filmes --environment "Variables={BACKEND_URL=http://%BACKEND_IP%:3000}" > nul
+aws lambda update-function-configuration --region us-east-1 --function-name report-filmes --environment Variables={BACKEND_URL=http://%BACKEND_IP%:3000} > nul
 echo API Gateway e Lambda atualizados!
 
 echo.
