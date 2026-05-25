@@ -29,7 +29,7 @@ echo Credenciais OK!
 echo.
 echo [2/4] Buscando IP do backend...
 for /f "tokens=*" %%i in ('aws ecs list-tasks --region us-east-1 --cluster catalogo-filmes-cluster --service-name backend-service --query "taskArns[0]" --output text') do set TASK_ARN=%%i
-for /f "tokens=*" %%i in ('aws ecs describe-tasks --region us-east-1 --cluster catalogo-filmes-cluster --tasks %TASK_ARN% --query "tasks[0].attachments[0].details[?name==''networkInterfaceId''].value" --output text') do set ENI=%%i
+for /f "tokens=*" %%i in ('aws ecs describe-tasks --region us-east-1 --cluster catalogo-filmes-cluster --tasks %TASK_ARN% --query tasks[0].attachments[0].details[1].value --output text') do set ENI=%%i
 for /f "tokens=*" %%i in ('aws ec2 describe-network-interfaces --region us-east-1 --network-interface-ids %ENI% --query "NetworkInterfaces[0].Association.PublicIp" --output text') do set BACKEND_IP=%%i
 
 echo IP do backend: %BACKEND_IP%
